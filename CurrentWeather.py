@@ -1,6 +1,3 @@
-import Weather
-
-
 class CurrentWeather:
     def __init__(self, weather_data):
         self.weather = weather_data

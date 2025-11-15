@@ -1,17 +1,11 @@
+from turtledemo.penrose import start
+
 import requests
 import json
 from CurrentWeather import CurrentWeather
 from DailyWeather import DailyWeather
+from HourlyWeather import HourlyWeather
 
-
-# https://api.open-meteo.com/v1/forecast?
-#   latitude=55.7558&
-#   longitude=37.6173&
-#   daily=temperature_2m_max,temperature_2m_min,weathercode&
-#   timezone=auto&
-#   forecast_days=7
-
-# - для многодневгого
 
 class Weather:
     WEATHER_CODES = {
@@ -52,3 +46,14 @@ class Weather:
         })
 
         return DailyWeather(data['daily'])
+
+    def get_hourly_weather(self, date):
+        data = self._make_request({
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'hourly': 'temperature_2m,weathercode,precipitation_probability,wind_speed_10m',
+            "start_date": date,
+            "end_date": date
+        })
+
+        return HourlyWeather(data['hourly'])
