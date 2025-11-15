@@ -1,5 +1,8 @@
 import requests
 import json
+from CurrentWeather import CurrentWeather
+from DailyWeather import DailyWeather
+
 
 # https://api.open-meteo.com/v1/forecast?
 #   latitude=55.7558&
@@ -11,6 +14,14 @@ import json
 # - для многодневгого
 
 class Weather:
+    WEATHER_CODES = {
+        0: "Ясно", 1: "Преимущественно ясно", 2: "Переменная облачность",
+        3: "Пасмурно", 45: "Туман", 48: "Инейный туман",
+        51: "Лежащая морось", 53: "Умеренная морось", 55: "Сильная морось",
+        61: "Небольшой дождь", 63: "Умеренный дождь", 65: "Сильный дождь",
+        80: "Ливень", 95: "Гроза", 96: "Гроза с градом"
+    }
+
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
     def __init__(self, longitude, latitude):
@@ -29,16 +40,15 @@ class Weather:
             "current_weather": 'true'
         })
 
-        return data['current_weather']
+        current = data['current_weather']
+        return CurrentWeather(current)
 
     def get_weather_for_some_days(self, days):
         data = self._make_request({
             "latitude": self.latitude,
             "longitude": self.longitude,
-            'daily': 'temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset',
+            'daily': 'temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset,wind_speed_10m_max',
             "forecast_days": days
         })
 
-        return data['daily']
-
-
+        return DailyWeather(data['daily'])
