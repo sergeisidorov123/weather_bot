@@ -27,7 +27,3 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         logging.info('bot stopped')
-
-#TODO
-# обработка ошибок
-# город по кордам

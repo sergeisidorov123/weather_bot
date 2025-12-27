@@ -23,11 +23,13 @@ async def current_weather(message: Message):
     """Give current weather to user"""
     user_id = message.from_user.id
     # брать из бд город юзера и в корды пихать
-    w = Weather(38, 56)
+    w = Weather(56.2853, 58.0176)
     geolocator = Nominatim(user_agent='weather_bot')
-    location = geolocator.reverse("56,38")
-    city = location.raw["name"]
+    location = geolocator.reverse(f"{w.latitude}, {w.longitude}")
+    city = location.raw["address"]["city"]
     current = w.get_current_weather()
-    await message.answer(text=f"Сейчас в \n{city[0].upper() + city[1:]}: \n\nТемпература:{current.temperature} \n"
+    await message.answer(text=f"{city}: \n\nТемпература:{current.temperature} \n"
                               f"Скорость ветра:{current.windspeed} \n{current.weathercode}")
 
+
+#сделать кнопку назад
