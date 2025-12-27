@@ -1,7 +1,7 @@
 import requests
-from CurrentWeather import CurrentWeather
-from DailyWeather import DailyWeather
-from HourlyWeather import HourlyWeather
+from src.core.CurrentWeather import CurrentWeather
+from src.core.DailyWeather import DailyWeather
+from src.core.HourlyWeather import HourlyWeather
 
 
 class Weather:
