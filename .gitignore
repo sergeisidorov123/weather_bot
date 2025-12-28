@@ -9,14 +9,14 @@ ENV/
 __pycache__/
 *.py[cod]
 
-# 2. Конфигурационные файлы с секретами
+# 2. Конфигурационные файлы
 .env
 .env.*
 !.env.example
 secrets/
 config/secrets/
 
-# 3. Базы данных (SQLite)
+# 3. Базы данных
 *.db
 *.sqlite
 *.sqlite3

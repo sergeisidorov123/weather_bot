@@ -1,8 +1,7 @@
+from datetime import datetime
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
-from geopy import Nominatim
-
 from src.bot.keyboard import get_main_menu
 from src.core.Weather import Weather
 from geopy.geocoders import Nominatim
@@ -28,8 +27,25 @@ async def current_weather(message: Message):
     location = geolocator.reverse(f"{w.latitude}, {w.longitude}")
     city = location.raw["address"]["city"]
     current = w.get_current_weather()
-    await message.answer(text=f"{city}: \n\nТемпература:{current.temperature} \n"
-                              f"Скорость ветра:{current.windspeed} \n{current.weathercode}")
+    print(current)
+    await message.answer(text=f"{city}: \n\nТемпература: {current.temperature} \n"
+                              f"Скорость ветра: {current.windspeed} \n{current.weathercode}")
+
+@router.message(F.text == "Hourly weather")
+@router.message(Command("hourlyweather"))
+async def hourly_weather(message: Message):
+    today_date = datetime.today().date()
+    user_id = message.from_user.id
+    w = Weather(56.2853, 58.0176)
+    geolocator = Nominatim(user_agent='weather_bot')
+    location = geolocator.reverse(f"{w.latitude}, {w.longitude}")
+    city = location.raw["address"]["city"]
+    today = w.get_hourly_weather(today_date)
+    hourly = today.get_weather_for_today(0, 2)
+    await message.answer(text=f"{city}")
+    for hour in hourly:
+        await message.answer(text=f"Время: {hour.time[-4:]}\n\nТемпература:{hour.temperature} \n"
+                             f"Скорость ветра:{hour.windspeed} \n{hour.weathercode}")
 
 
 #сделать кнопку назад
