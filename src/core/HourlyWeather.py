@@ -5,7 +5,7 @@ class HourlyWeather:
     def __init__(self, weather_data):
         self.weather = weather_data
 
-    def get_weather_for_today(self, start_hour, end_hour):
+    def get_weather_for_today_by_hours(self, start_hour, end_hour):
         try:
             HourForecast = namedtuple('HourForecast',
                                       ['time', 'windspeed','temperature', 'precipitation', 'weathercode'])
