@@ -1,10 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, create_engine
-from sqlalchemy.orm import relationship, declarative_base, DeclarativeBase, sessionmaker
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from src.config import settings
 
 engine = create_engine(
     url=settings.DATABASE_URL,
-    echo=True
+    echo=False
 )
 
 session_factory = sessionmaker(bind=engine)

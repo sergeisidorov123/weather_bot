@@ -1,17 +1,21 @@
+from geopy import Nominatim
+from aiogram import F
 from src.db.models import Users
-from src.db.dto import UserCreate
 from src.db.setup_db import session_factory, Base, engine
 
 def create_db():
     Base.metadata.create_all(bind=engine)
 
-def insert_user(user_data: UserCreate):
+def insert_user(user_id: int, location: F.location):
+    geolocator = Nominatim(user_agent='weather_bot')
+    location = geolocator.reverse(f"{location.latitude}, {location.longitude}")
+    city = location.raw["address"]["city"]
     with session_factory() as session:
         user = Users(
-            user_id=user_data.user_id,
-            latitude=user_data.latitude,
-            longitude=user_data.longitude,
-            city=user_data.city,
+            user_id=user_id,
+            latitude=location.latitude,
+            longitude=location.longitude,
+            city=city
         )
     session.add(user)
     session.commit()

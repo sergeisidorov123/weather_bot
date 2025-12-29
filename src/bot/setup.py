@@ -1,6 +1,6 @@
 from aiogram import Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from src.bot.handlers import router
+from .handlers import router
 
 
 def setup_bot() -> Dispatcher:

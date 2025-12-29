@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, func, text, DateTime, Text, Float
+from sqlalchemy import Column, Integer, String, Float
 from src.db.setup_db import Base
 
 class Users(Base):
@@ -7,4 +7,4 @@ class Users(Base):
     user_id = Column(Integer, primary_key=True)
     latitude = Column(Float)
     longitude = Column(Float)
-    city = Column(String)
+    city = Column(String, nullable=True)
