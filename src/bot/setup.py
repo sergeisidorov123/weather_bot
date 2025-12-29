@@ -4,7 +4,7 @@ from src.bot.handlers import router
 
 
 def setup_bot() -> Dispatcher:
-    """Настройка и возврат диспетчера"""
+    """Bot setup via dispatcher"""
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
     dp.include_router(router)
