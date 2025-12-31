@@ -9,7 +9,11 @@ def create_db():
 def insert_user(user_id: int, location: F.location):
     geolocator = Nominatim(user_agent='weather_bot')
     location = geolocator.reverse(f"{location.latitude}, {location.longitude}")
-    city = location.raw["address"]["city"]
+    print(location.raw)
+    try:
+        city = location.raw["address"]["city"]
+    except KeyError:
+        city = location.raw["address"]["village"]
     with session_factory() as session:
         user = Users(
             user_id=user_id,
