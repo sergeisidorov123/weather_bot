@@ -1,6 +1,7 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton
 from aiogram import types
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from datetime import datetime, timedelta
 
 
 def get_main_menu() -> ReplyKeyboardMarkup:
@@ -52,3 +53,28 @@ def get_hours_keyboard(mode: str = 'any'):
     builder.row(KeyboardButton(text="Cancel"))
 
     return builder.as_markup(resize_keyboard=True)
+
+def get_daily_keyboard(mode: str = 'any'):
+    builder = ReplyKeyboardBuilder()
+    current_date = datetime.today().date()
+    for i in range(8, 1, -1):
+        builder.add(KeyboardButton(
+            text=str(current_date - timedelta(i)),
+        ))
+    builder.add(KeyboardButton(text="Now"))
+    for i in range(1,8):
+        builder.add(KeyboardButton(
+            text=str(current_date + timedelta(i)),
+        ))
+
+    return builder.as_markup(resize_keyboard=True)
+
+def choose_path_of_daily_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text='Get weather for a day')],
+            [KeyboardButton(text='Get weather for a week')]
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="Choose"
+    )

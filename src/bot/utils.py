@@ -4,4 +4,9 @@ from aiogram.fsm.context import FSMContext
 class HourChoose(StatesGroup):
     waiting_start_hour = State()
     waiting_end_hour = State()
-    weather_forecast = State()
+
+class DayChoose(StatesGroup):
+    waiting_day = State()
+
+class DayOrWeekChoose(StatesGroup):
+    waiting_choice = State()

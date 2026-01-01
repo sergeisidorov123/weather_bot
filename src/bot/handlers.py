@@ -1,14 +1,15 @@
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import CommandStart, Command
-from .keyboard import get_main_menu, get_location, get_hours_keyboard
+from .keyboard import get_main_menu, get_location, get_hours_keyboard, get_daily_keyboard, choose_path_of_daily_keyboard
 from ..core.Weather import Weather
 from ..db.crud import insert_user, get_user_by_id
-from .utils import HourChoose
+from .utils import HourChoose, DayChoose, DayOrWeekChoose
 
-
+logging.basicConfig(level=logging.INFO)
 router = Router()
 
 @router.message(CommandStart())
@@ -18,8 +19,10 @@ async def start_command(message: Message):
     user = get_user_by_id(user_id)
     await message.delete()
     if user is None:
+        logging.info(f'User {user_id} not founded in db')
         await message.answer("Not founded in db", reply_markup=get_location())
     else:
+        logging.info(f'User {user_id} started')
         await message.answer(f"Choose:", reply_markup=get_main_menu())
 
 
@@ -29,6 +32,7 @@ async def send_current_weather(message: Message):
     """Give current weather to user in city from db"""
     user_id = message.from_user.id
     user = get_user_by_id(user_id)
+    logging.info(f'User {user_id} choose current weather')
     await message.delete()
     if user is None:
         await message.answer("First need to send location", reply_markup=get_location())
@@ -51,17 +55,22 @@ async def start_hourly_weather_selection(message: Message, state: FSMContext):
 
 @router.message(HourChoose.waiting_start_hour)
 async def get_start_hour(message: Message, state: FSMContext):
-    if not message.text.isdigit() or not (0 <= int(message.text) <= 24):
-        await message.answer("Choose correctly")
-        return
+    user_id = message.from_user.id
+    user = get_user_by_id(user_id)
+    if user is None:
+        await message.answer("First need to send location", reply_markup=get_location())
+    else:
+        if not message.text.isdigit() or not (0 <= int(message.text) <= 24):
+            await message.answer("Choose correctly")
+            return
 
-    await state.update_data(start=int(message.text))
-    await state.set_state(HourChoose.waiting_end_hour)
-    await message.delete()
-    await message.answer(
-        f"Start: {message.text}:00\n\nChoose end hour:",
-        reply_markup=get_hours_keyboard('end')
-    )
+        await state.update_data(start=int(message.text))
+        await state.set_state(HourChoose.waiting_end_hour)
+        await message.delete()
+        await message.answer(
+            f"Start: {message.text}:00\n\nChoose end hour:",
+            reply_markup=get_hours_keyboard('end')
+        )
 
 
 @router.message(HourChoose.waiting_end_hour)
@@ -78,11 +87,10 @@ async def get_end_hour(message: Message, state: FSMContext):
     if end_hour <= start_hour:
         await message.answer("End hour should be lower than start hour")
         return
-    await state.set_state(HourChoose.weather_forecast)
-    await send_hourly_weather(message, state)
+    await send_hourly_weather_for_today(message, state)
+    await state.clear()
 
-
-async def send_hourly_weather(message: Message, state: FSMContext):
+async def send_hourly_weather_for_today(message: Message, state: FSMContext):
     """Give hourly weather to user in city from db"""
     data = await state.get_data()
     start_hour = data['start']
@@ -90,19 +98,17 @@ async def send_hourly_weather(message: Message, state: FSMContext):
     today_date = datetime.today().date()
     user_id = message.from_user.id
     user = get_user_by_id(user_id)
-    if user is None:
-        await message.answer("First need to send location", reply_markup=get_location())
-    else:
-        longitude = user.longitude
-        latitude = user.latitude
-        w = Weather(longitude, latitude)
-        today = w.get_hourly_weather(today_date)
-        hourly = today.get_weather_for_today_by_hours(start_hour,end_hour)
-        await message.answer(text = f"Hourly weather")
-        await message.answer(text=f"{user.city}")
-        for hour in hourly:
-            await message.answer(text=f"Time: {hour.time[-5:]}\n\nTemp:{hour.temperature}°С\n"
-                                 f"Wind speed:{hour.windspeed} M/S \n{hour.weathercode}", reply_markup=get_main_menu())
+    logging.info(f'User {user_id} choose hourly weather')
+    longitude = user.longitude
+    latitude = user.latitude
+    w = Weather(longitude, latitude)
+    today = w.get_hourly_weather(today_date)
+    hourly = today.get_weather_for_today_by_hours(start_hour,end_hour)
+    await message.answer(text = f"Hourly weather")
+    await message.answer(text=f"{user.city}")
+    for hour in hourly:
+        await message.answer(text=f"Time: {hour.time[-5:]}\n\nTemp:{hour.temperature}°С\n"
+                             f"Wind speed:{hour.windspeed} M/S \n{hour.weathercode}", reply_markup=get_main_menu())
 
 
 @router.message(F.location)
@@ -111,6 +117,7 @@ async def add_user_to_db(message: Message):
     location = message.location
     insert_user(message.from_user.id, location)
     await message.delete()
+    logging.info(f'User {message.user_id} send location: {location}')
     await message.answer(f"Location get successfully", reply_markup=get_main_menu())
 
 
@@ -119,8 +126,58 @@ async def return_to_main_menu(message: Message):
     await message.delete()
     await message.answer("Return to the main menu", reply_markup=get_main_menu())
 
-#Ввод даты
+
+@router.message(F.text == "Daily weather")
+async def daily_weather_selection(message: Message):
+    await message.delete()
+    await message.answer("Choose", reply_markup=choose_path_of_daily_keyboard())
+
+@router.message(F.text == "Get weather for a day")
+async def daily_weather_selection(message: Message, state: FSMContext):
+    await message.delete()
+    await message.answer("Choose day", reply_markup=get_daily_keyboard())
+    await state.set_state(DayChoose.waiting_day)
+
+@router.message(DayChoose.waiting_day)
+async def send_daily_weather_for_a_day(message: Message, state: FSMContext):
+    day = message.text
+    #Валидировать
+    await send_daily_weather(message, day, day)
+    await state.clear()
+
+
+@router.message(F.text == "Get weather for a week")
+async def send_daily_weather_for_a_week(message: Message):
+    start_day = datetime.today().date()
+    end_day = start_day + timedelta(days=7)
+    await send_daily_weather(message, start_day, end_day)
+
+async def send_daily_weather(message: Message, start_day, end_day):
+    user_id = message.from_user.id
+    user = get_user_by_id(user_id)
+    logging.info(f'User {user_id} choose daily weather for a day')
+    if user is None:
+        await message.answer("First need to send location", reply_markup=get_location())
+    else:
+        longitude = user.longitude
+        latitude = user.latitude
+        w = Weather(longitude, latitude)
+        forecast = w.get_weather_for_some_days(start_day, end_day)
+        day_forecast = forecast.get_weather_data_forecast()
+        for day in day_forecast:
+            await message.answer(text=f"Day: {day.time}\n\n"
+                                      f"Temp max:{day.temperature_2m_max}°С\n"
+                                      f"Temp min:{day.temperature_2m_min}°С\n"
+                                      f"Max wind speed:{day.wind_speed_10m_max} M/S \n"
+                                      f"{day.weathercode}",
+                                 reply_markup=get_main_menu())
+#Ввод даты на почасовой
 #Обработка ошибок
 #Разделить ответственность
 #ошибки ловить
-#
+#Уведомления о погоде на завтра в тайминг выбранный пользователем
+#инлайн кнопки на днях-часах с переключением чтобы не было загромождения
+#в часах енд клавиатуру брать от старта
+#в погоде по дням распределить для предыдущих дней и следующих
+#огран по часам и по дням(7 дней макс)
+# типы в функциях

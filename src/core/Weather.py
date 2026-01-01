@@ -57,15 +57,16 @@ class Weather:
         current['weathercode'] = self.WEATHER_CODES[current['weathercode']]
         return CurrentWeather(current)
 
-    def get_weather_for_some_days(self, days):
+    def get_weather_for_some_days(self, start_date, end_date):
         data = self._make_request({
             "latitude": self.latitude,
             "longitude": self.longitude,
-            'daily': 'temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset,wind_speed_10m_max',
-            "forecast_days": days
+            'daily': 'temperature_2m_max,temperature_2m_min,weathercode,wind_speed_10m_max',
+            "start_date": start_date,
+            "end_date": end_date
         })
-        for i in range(days):
-            data['daily']['weathercode'][i] = self.WEATHER_CODES[data['daily']['weathercode'][i]]
+        for day in range(len(data['daily']['time'])):
+            data['daily']['weathercode'][day] = self.WEATHER_CODES[data['daily']['weathercode'][day]]
         return DailyWeather(data['daily'])
 
     def get_hourly_weather(self, date):
