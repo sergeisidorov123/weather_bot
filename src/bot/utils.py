@@ -8,5 +8,5 @@ class HourChoose(StatesGroup):
 class DayChoose(StatesGroup):
     waiting_day = State()
 
-class DayOrWeekChoose(StatesGroup):
-    waiting_choice = State()
+class CityChoose(StatesGroup):
+    waiting_city_name = State()
