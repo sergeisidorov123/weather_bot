@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import CommandStart, Command
 from .keyboard import get_main_menu, get_location, get_hours_keyboard, get_daily_keyboard, choose_path_of_daily_keyboard
@@ -16,7 +16,7 @@ router = Router()
 async def start_command(message: Message):
     """Bot start reply"""
     user_id = message.from_user.id
-    user = get_user_by_id(user_id)
+    user = await get_user_by_id(user_id)
     if user is None:
         logging.info(f'User {user_id} not founded in db')
         await message.answer("Not founded in db", reply_markup=get_location())
@@ -43,6 +43,105 @@ async def send_current_weather(message: Message):
                                   f"WindSpeed: {current.windspeed} M/S \n{current.weathercode}")
 
 
+@router.callback_query(F.data.startswith("hours_"))
+async def handle_hours_pagination(callback: CallbackQuery, state: FSMContext):
+    try:
+        parts = callback.data.split("_")
+
+        if len(parts) < 4:
+            await callback.answer("Error format")
+            return
+
+        action = parts[1]
+        mode = parts[2]
+        current_page = int(parts[3])
+
+        if action == "next":
+            new_page = current_page + 1
+        elif action == "prev":
+            new_page = current_page - 1
+        else:
+            await callback.answer("Неизвестное действие")
+            return
+
+        if new_page < 0:
+            await callback.answer()
+            return
+
+        hours_per_page = 8
+        if new_page * hours_per_page >= 24:
+            await callback.answer()
+            return
+
+        await callback.answer()
+
+        await callback.message.edit_reply_markup(
+            reply_markup=get_hours_keyboard(mode=mode, page=new_page)
+        )
+
+    except Exception as e:
+        logging.error(f"Error in pagination: {e}")
+
+
+@router.callback_query(F.data.startswith("hour_"))
+async def handle_hour_selection(callback: CallbackQuery, state: FSMContext):
+    data = callback.data.split("_")
+
+    if data[1] == "cancel":
+        await callback.message.delete()
+        await callback.answer("Cancelled")
+        await state.clear()
+        return
+
+    mode = data[1]
+    hour_value = data[2]
+    current_state = await state.get_state()
+
+    if current_state == HourChoose.waiting_start_hour.state:
+        await state.update_data(start_hour=hour_value)
+        await callback.message.edit_text("Choose end hour:")
+        await callback.message.edit_reply_markup(
+            reply_markup=get_hours_keyboard('end')
+        )
+        await state.set_state(HourChoose.waiting_end_hour)
+    elif current_state == HourChoose.waiting_end_hour.state:
+        await state.update_data(end_hour=hour_value)
+        data = await state.get_data()
+
+        start_hour = data.get('start_hour')
+        end_hour = hour_value
+
+
+        if start_hour.isdigit() and end_hour.isdigit():
+            start_hour_int = int(start_hour)
+            end_hour_int = int(end_hour)
+
+            if end_hour_int <= start_hour_int:
+                await callback.message.edit_text("End hour should be greater than start hour")
+                await callback.answer()
+                return
+
+        user_id = callback.from_user.id
+        user = await get_user_by_id(user_id)
+
+        if user is None:
+            await callback.message.edit_text("First need to send location", reply_markup=get_location())
+        else:
+            await callback.message.delete()
+
+            await callback.answer(f"Selected: {start_hour}:00 - {end_hour}:00")
+
+            await send_hourly_weather_for_selected_hours(
+                callback.message,
+                user,
+                start_hour,
+                end_hour
+            )
+
+        await state.clear()
+
+    await callback.answer()
+
 @router.message(F.text == "Hourly weather")
 @router.message(Command("hourlyweather"))
 async def start_hourly_weather_selection(message: Message, state: FSMContext):
@@ -53,7 +152,7 @@ async def start_hourly_weather_selection(message: Message, state: FSMContext):
 @router.message(HourChoose.waiting_start_hour)
 async def get_start_hour(message: Message, state: FSMContext):
     user_id = message.from_user.id
-    user = get_user_by_id(user_id)
+    user = await get_user_by_id(user_id)
     if user is None:
         await message.answer("First need to send location", reply_markup=get_location())
     else:
@@ -82,28 +181,37 @@ async def get_end_hour(message: Message, state: FSMContext):
     if end_hour <= start_hour:
         await message.answer("End hour should be lower than start hour")
         return
-    await send_hourly_weather_for_today(message, state)
+    await send_hourly_weather_for_selected_hours(message, state)
     await state.clear()
 
-async def send_hourly_weather_for_today(message: Message, state: FSMContext):
-    """Give hourly weather to user in city from db"""
-    data = await state.get_data()
-    start_hour = data['start']
-    end_hour = (data['end'] + 1)
-    today_date = datetime.today().date()
-    user_id = message.from_user.id
-    user = await get_user_by_id(user_id)
-    logging.info(f'User {user_id} choose hourly weather')
-    longitude = user.longitude
-    latitude = user.latitude
-    w = Weather(longitude, latitude)
-    today = w.get_hourly_weather(today_date)
-    hourly = today.get_weather_for_today_by_hours(start_hour,end_hour)
-    await message.answer(text = f"Hourly weather")
-    await message.answer(text=f"{user.city}")
-    for hour in hourly:
-        await message.answer(text=f"Time: {hour.time[-5:]}\n\nTemp:{hour.temperature}°С\n"
-                             f"Wind speed:{hour.windspeed} M/S \n{hour.weathercode}", reply_markup=get_main_menu())
+
+async def send_hourly_weather_for_selected_hours(message: Message, user, start_hour_str: str, end_hour_str: str):
+    """Give hourly weather for selected hours"""
+    try:
+        start_hour = int(start_hour_str)
+        end_hour = int(end_hour_str)
+
+        today_date = datetime.today().date()
+
+        w = Weather(user.longitude, user.latitude)
+        today = w.get_hourly_weather(today_date)
+        hourly = today.get_weather_for_today_by_hours(start_hour, end_hour)
+
+        await message.answer(text=f"{user.city}:")
+
+        for hour in hourly:
+            await message.answer(
+                text=f"Time: {hour.time[-5:]}\n\n"
+                     f"Temp: {hour.temperature}°С\n"
+                     f"Wind speed: {hour.windspeed} M/S \n"
+                     f"{hour.weathercode}"
+            )
+
+        await message.answer("Choose:", reply_markup=get_main_menu())
+
+    except Exception as e:
+        logging.error(f"Error showing hourly weather: {e}")
+        await message.answer("Error showing weather. Please try again.", reply_markup=get_main_menu())
 
 
 @router.message(F.location)
@@ -185,8 +293,8 @@ async def add_user_to_db_via_city_name(message: Message, state: FSMContext):
 #Разделить ответственность
 #ошибки ловить
 #Уведомления о погоде на завтра в тайминг выбранный пользователем
-#инлайн кнопки на днях-часах с переключением чтобы не было загромождения
 #в часах енд клавиатуру брать от старта
 #в погоде по дням распределить для предыдущих дней и следующих
 #огран по часам и по дням(7 дней макс)
 # типы в функциях
+#обрабатывать now и end в hourly

@@ -1,6 +1,6 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton
 from aiogram import types
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from datetime import datetime, timedelta
 
 
@@ -27,32 +27,65 @@ def get_location() -> ReplyKeyboardMarkup:
     )
     return keyboard
 
-def get_hours_keyboard(mode: str = 'any'):
+def get_hours_keyboard(mode: str = 'any', page: int = 0):
     """
     Get keyboard to pick hours
+    :param page:
     :param mode:
     'any' - for choose anytime
     'start' - for choose start time
     'end' - for choose end time
     """
 
-    builder = ReplyKeyboardBuilder()
-    for i in range(24):
-        builder.add(KeyboardButton(
-            text=str(i),
-            callback_data=f"number_{i}"
+    builder = InlineKeyboardBuilder()
+
+    hours_per_page = 8
+    start_hour = page * hours_per_page
+    end_hour = start_hour + hours_per_page
+
+    for hour in range(start_hour, end_hour):
+        if hour < 24:
+            builder.add(InlineKeyboardButton(
+                text=str(hour),
+                callback_data=f"hour_{mode}_{hour}"
+            ))
+
+    builder.adjust(4)
+
+    nav_buttons = []
+
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton(
+            text="⬅️",
+            callback_data=f"hours_prev_{mode}_{page}"
         ))
 
-    builder.adjust(5, 5, 5, 5, 5)
+    if end_hour < 24:
+        nav_buttons.append(InlineKeyboardButton(
+            text="➡️",
+            callback_data=f"hours_next_{mode}_{page}"
+        ))
+
+    if nav_buttons:
+        builder.row(*nav_buttons)
 
     if mode == 'start':
-        builder.row(KeyboardButton(text="Now"))
+        builder.row(InlineKeyboardButton(
+            text="Now",
+            callback_data=f"hour_{mode}_now"
+        ))
     elif mode == 'end':
-        builder.row(KeyboardButton(text="To the end of the day"))
+        builder.row(InlineKeyboardButton(
+            text="To the end of the day",
+            callback_data=f"hour_{mode}_end"
+        ))
 
-    builder.row(KeyboardButton(text="Cancel"))
+    builder.row(InlineKeyboardButton(
+        text="Cancel",
+        callback_data=f"hour_cancel"
+    ))
 
-    return builder.as_markup(resize_keyboard=True)
+    return builder.as_markup()
 
 def get_daily_keyboard(mode: str = 'any'):
     builder = ReplyKeyboardBuilder()
