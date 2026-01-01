@@ -132,6 +132,8 @@ async def daily_weather_selection(message: Message, state: FSMContext):
 @router.message(DayChoose.waiting_day)
 async def send_daily_weather_for_a_day(message: Message, state: FSMContext):
     day = message.text
+    if day == "Now":
+        day = datetime.today().date()
     #Валидировать
     await send_daily_weather(message, day, day)
     await state.clear()
