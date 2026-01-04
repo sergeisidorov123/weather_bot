@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    BOT_TOKEN: str
+    BOT_TOKEN: str = " "
     DATABASE_URL: str = "sqlite:///./weatherbot.db"
 
     class Config:
