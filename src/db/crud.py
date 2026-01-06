@@ -3,7 +3,7 @@ from geopy import Nominatim
 from aiogram import F
 from src.db.models import Users
 from src.db.setup_db import session_factory, Base, engine
-
+import asyncio
 
 geolocator = Nominatim(user_agent='weather_bot')
 
@@ -27,10 +27,10 @@ async def insert_user(user_id: int, location: F.location):
     session.commit()
 
 async def city_change(user_id: int, city: Message):
-    user = await get_user_by_id(user_id)
-    location = geolocator.geocode(city.text)
+    location = await asyncio.to_thread(geolocator.geocode, city.text)
     print(location)
     with session_factory() as session:
+        user = session.query(Users).filter(Users.user_id == user_id).first()
         if user:
             user.latitude = location.latitude
             user.longitude = location.longitude
@@ -42,8 +42,8 @@ async def city_change(user_id: int, city: Message):
                 longitude=location.longitude,
                 city=city.text
             )
-    session.add(user)
-    session.commit()
+        session.add(user)
+        session.commit()
 
 async def get_user_by_id(user_id: int):
     with session_factory() as session:
