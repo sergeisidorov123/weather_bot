@@ -1,11 +1,8 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
-
 from aiogram import Bot
 from src.bot.setup import setup_bot
 from src.config import settings
-from src.core.Weather import Weather
 from src.db.crud import create_db
 
 async def main():
@@ -24,3 +21,6 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         logging.info('bot stopped')
+
+
+#добавить настройки rabbit
