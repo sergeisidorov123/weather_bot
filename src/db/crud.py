@@ -26,24 +26,54 @@ async def insert_user(user_id: int, location: F.location):
     session.add(user)
     session.commit()
 
-async def city_change(user_id: int, city: Message):
-    location = await asyncio.to_thread(geolocator.geocode, city.text)
-    print(location)
+async def city_change_by_name(user_id: int, city_name: str):
+    location = await asyncio.to_thread(geolocator.geocode, city_name)
+    if not location:
+        raise ValueError("City not found")
+
     with session_factory() as session:
         user = session.query(Users).filter(Users.user_id == user_id).first()
         if user:
             user.latitude = location.latitude
             user.longitude = location.longitude
-            user.city = city.text
+            user.city = city_name
         else:
             user = Users(
                 user_id=user_id,
                 latitude=location.latitude,
                 longitude=location.longitude,
-                city=city.text
+                city=city_name
             )
         session.add(user)
         session.commit()
+
+async def city_change_by_location(user_id: int, location_msg: Message):
+    geo = geolocator.reverse(
+        f"{location_msg.location.latitude}, {location_msg.location.longitude}"
+    )
+
+    city = (
+        geo.raw["address"].get("city")
+        or geo.raw["address"].get("village")
+        or "Unknown"
+    )
+
+    with session_factory() as session:
+        user = session.query(Users).filter(Users.user_id == user_id).first()
+        if user:
+            user.latitude = location_msg.location.latitude
+            user.longitude = location_msg.location.longitude
+            user.city = city
+        else:
+            user = Users(
+                user_id=user_id,
+                latitude=location_msg.location.latitude,
+                longitude=location_msg.location.longitude,
+                city=city
+            )
+        session.add(user)
+        session.commit()
+
 
 async def get_user_by_id(user_id: int):
     with session_factory() as session:
